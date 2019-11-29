@@ -1,17 +1,17 @@
 {
   "debug": true,
   "server": {
-    "address": ":9090"
+    "address": ":8080"
   },
   "context":{
     "timeout":2
   },
   "database": {
-      "host": "mysql",
+      "host": "remotemysql.com",
       "port": "3306",
-      "user": "user",
-      "pass": "password",
-      "name": "article"
+      "user": "f0W32R1gtc",
+      "pass": "lwROhOORP0",
+      "name": "f0W32R1gtc"
   }
 
 }

@@ -2,7 +2,8 @@
 FROM golang:1.12.8-alpine3.10 as builder
 
 RUN apk update && apk upgrade && \
-    apk --update add git make
+    apk --update add git gcc make && \
+    go get -u github.com/golang/dep/cmd/dep
 
 WORKDIR /app
 
