@@ -6,8 +6,8 @@ import (
 
 	"github.com/sirupsen/logrus"
 
-	"github.com/wallet/author"
-	"github.com/wallet/models"
+	"github.com/williamchand/my-wallet/author"
+	"github.com/williamchand/my-wallet/models"
 )
 
 type mysqlAuthorRepo struct {

@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	sqlmock "gopkg.in/DATA-DOG/go-sqlmock.v1"
 
-	"github.com/wallet/author/repository"
+	"github.com/williamchand/my-wallet/author/repository"
 )
 
 func TestGetByID(t *testing.T) {

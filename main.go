@@ -16,7 +16,7 @@ import (
 	_walletRepo "github.com/williamchand/my-wallet/wallet/repository"
 	_walletUcase "github.com/williamchand/my-wallet/wallet/usecase"
 	_authorRepo "github.com/williamchand/my-wallet/author/repository"
-	"github.com/wallet/middleware"
+	"github.com/williamchand/my-wallet/middleware"
 )
 
 func init() {
