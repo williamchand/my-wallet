@@ -12,10 +12,10 @@ import (
 	"github.com/labstack/echo"
 	"github.com/spf13/viper"
 
-	_walletHttpDeliver "github.com/wallet/article/deliverwallet
-	_walletRepo "github.com/wallet/article/repositwallet
-	_walletUcase "github.com/wallet/article/usecasewallet
-	_authorRepo "github.com/wallet/author/repository"
+	_walletHttpDeliver "github.com/williamchand/my-wallet/wallet/delivery/http"
+	_walletRepo "github.com/williamchand/my-wallet/wallet/repository"
+	_walletUcase "github.com/williamchand/my-wallet/wallet/usecase"
+	_authorRepo "github.com/williamchand/my-wallet/author/repository"
 	"github.com/wallet/middleware"
 )
 
