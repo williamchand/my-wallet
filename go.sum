@@ -2,6 +2,8 @@ github.com/BurntSushi/toml v0.3.1 h1:WXkYYl6Yr3qBf1K79EBnL4mak0OimBfB0XUf9Vl28OQ
 github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03qcyfWMU=
 github.com/bxcodec/faker v1.4.2 h1:PlGLUcQ/yo/JUiwn3kUGnFkDbcv2o18oryc+ch+AkqY=
 github.com/bxcodec/faker v1.4.2/go.mod h1:BNzfpVdTwnFJ6GtfYTcQu6l6rHShT+veBxNCnjCx5XM=
+github.com/bxcodec/go-clean-arch v2.0.1+incompatible h1:ISk1ODVJgmZjna5oSk7VpyDrfqVzfI3vo3a0jMFV4DY=
+github.com/bxcodec/go-clean-arch v2.0.1+incompatible/go.mod h1:rHt3qW/sMjXpnX3lYrd0VmRVphCbtWmfBT/ZGY4nQ3I=
 github.com/davecgh/go-spew v1.1.0 h1:ZDRjVQ15GmhC3fiQ8ni8+OwkZQO4DARzQgrnXU1Liz8=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/fsnotify/fsnotify v1.4.7 h1:IXs+QLmnXW2CcXuY+8Mzv/fWEsPGWxqefPtCP5CnV9I=
@@ -59,6 +61,8 @@ github.com/valyala/bytebufferpool v1.0.0 h1:GqA5TC/0021Y/b9FG4Oi9Mr3q7XYx6Kllzaw
 github.com/valyala/bytebufferpool v1.0.0/go.mod h1:6bBcMArwyJ5K/AmCkWv1jt77kVWyCJ6HpOuEn7z0Csc=
 github.com/valyala/fasttemplate v0.0.0-20170224212429-dcecefd839c4 h1:gKMu1Bf6QINDnvyZuTaACm9ofY+PRh+5vFz4oxBZeF8=
 github.com/valyala/fasttemplate v0.0.0-20170224212429-dcecefd839c4/go.mod h1:50wTf68f99/Zt14pr046Tgt3Lp2vLyFZKzbFXTOabXw=
+github.com/williamchand/my-wallet v2.0.1+incompatible h1:J8vV2hXE3QaKXEzthbxayS52elHOnKEDyuuz/pIguS4=
+github.com/williamchand/my-wallet v2.0.1+incompatible/go.mod h1:bas87bI/pYjAgSrOQiIvlEYVU9POMII0rx9bERmfuAQ=
 golang.org/x/crypto v0.0.0-20180426230345-b49d69b5da94 h1:m5xBqfQdnzv6XuV/pJizrLOwUoGzyn1J249cA0cKL4o=
 golang.org/x/crypto v0.0.0-20180426230345-b49d69b5da94/go.mod h1:6SG95UA2DQfeDnfUPMdvaQW0Q7yPrPDi9nlGo2tz2b4=
 golang.org/x/net v0.0.0-20180906233101-161cd47e91fd h1:nTDtHvHSdCn1m6ITfMRqtOd/9+7a3s8RBNOZ3eYZzJA=

@@ -4,8 +4,8 @@ import (
 	"time"
 )
 
-// Article represent the article model
-type Article struct {
+// Wallet represent the wallet model
+type Wallet struct {
 	ID        int64     `json:"id"`
 	Title     string    `json:"title" validate:"required"`
 	Content   string    `json:"content" validate:"required"`

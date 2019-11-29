@@ -9,24 +9,24 @@ import (
 
 	"github.com/sirupsen/logrus"
 
-	"github.com/bxcodec/go-clean-arch/article"
-	"github.com/bxcodec/go-clean-arch/models"
+	"github.com/williamchand/my-wallet/wallet"
+	"github.com/williamchand/my-wallet/models"
 )
 
 const (
 	timeFormat = "2006-01-02T15:04:05.999Z07:00" // reduce precision from RFC3339Nano as date format
 )
 
-type mysqlArticleRepository struct {
+type mysqlWalletRepository struct {
 	Conn *sql.DB
 }
 
-// NewMysqlArticleRepository will create an object that represent the article.Repository interface
-func NewMysqlArticleRepository(Conn *sql.DB) article.Repository {
-	return &mysqlArticleRepository{Conn}
+// NewMysqlWalletRepository will create an object that represent the wallet.Repository interface
+func NewMysqlWalletRepository(Conn *sql.DB) wallet.Repository {
+	return &mysqlWalletRepository{Conn}
 }
 
-func (m *mysqlArticleRepository) fetch(ctx context.Context, query string, args ...interface{}) ([]*models.Article, error) {
+func (m *mysqlWalletRepository) fetch(ctx context.Context, query string, args ...interface{}) ([]*models.Wallet, error) {
 	rows, err := m.Conn.QueryContext(ctx, query, args...)
 	if err != nil {
 		logrus.Error(err)
@@ -40,9 +40,9 @@ func (m *mysqlArticleRepository) fetch(ctx context.Context, query string, args .
 		}
 	}()
 
-	result := make([]*models.Article, 0)
+	result := make([]*models.Wallet, 0)
 	for rows.Next() {
-		t := new(models.Article)
+		t := new(models.Wallet)
 		authorID := int64(0)
 		err = rows.Scan(
 			&t.ID,
@@ -66,9 +66,9 @@ func (m *mysqlArticleRepository) fetch(ctx context.Context, query string, args .
 	return result, nil
 }
 
-func (m *mysqlArticleRepository) Fetch(ctx context.Context, cursor string, num int64) ([]*models.Article, string, error) {
+func (m *mysqlWalletRepository) Fetch(ctx context.Context, cursor string, num int64) ([]*models.Wallet, string, error) {
 	query := `SELECT id,title,content, author_id, updated_at, created_at
-  						FROM article WHERE created_at > ? ORDER BY created_at LIMIT ? `
+  						FROM wallet WHERE created_at > ? ORDER BY created_at LIMIT ? `
 
 	decodedCursor, err := DecodeCursor(cursor)
 	if err != nil && cursor != "" {
@@ -87,9 +87,9 @@ func (m *mysqlArticleRepository) Fetch(ctx context.Context, cursor string, num i
 
 	return res, nextCursor, err
 }
-func (m *mysqlArticleRepository) GetByID(ctx context.Context, id int64) (res *models.Article, err error) {
+func (m *mysqlWalletRepository) GetByID(ctx context.Context, id int64) (res *models.Wallet, err error) {
 	query := `SELECT id,title,content, author_id, updated_at, created_at
-  						FROM article WHERE ID = ?`
+  						FROM wallet WHERE ID = ?`
 
 	list, err := m.fetch(ctx, query, id)
 	if err != nil {
@@ -105,9 +105,9 @@ func (m *mysqlArticleRepository) GetByID(ctx context.Context, id int64) (res *mo
 	return
 }
 
-func (m *mysqlArticleRepository) GetByTitle(ctx context.Context, title string) (res *models.Article, err error) {
+func (m *mysqlWalletRepository) GetByTitle(ctx context.Context, title string) (res *models.Wallet, err error) {
 	query := `SELECT id,title,content, author_id, updated_at, created_at
-  						FROM article WHERE title = ?`
+  						FROM wallet WHERE title = ?`
 
 	list, err := m.fetch(ctx, query, title)
 	if err != nil {
@@ -122,8 +122,8 @@ func (m *mysqlArticleRepository) GetByTitle(ctx context.Context, title string) (
 	return
 }
 
-func (m *mysqlArticleRepository) Store(ctx context.Context, a *models.Article) error {
-	query := `INSERT  article SET title=? , content=? , author_id=?, updated_at=? , created_at=?`
+func (m *mysqlWalletRepository) Store(ctx context.Context, a *models.Wallet) error {
+	query := `INSERT  wallet SET title=? , content=? , author_id=?, updated_at=? , created_at=?`
 	stmt, err := m.Conn.PrepareContext(ctx, query)
 	if err != nil {
 		return err
@@ -143,8 +143,8 @@ func (m *mysqlArticleRepository) Store(ctx context.Context, a *models.Article) e
 	return nil
 }
 
-func (m *mysqlArticleRepository) Delete(ctx context.Context, id int64) error {
-	query := "DELETE FROM article WHERE id = ?"
+func (m *mysqlWalletRepository) Delete(ctx context.Context, id int64) error {
+	query := "DELETE FROM wallet WHERE id = ?"
 
 	stmt, err := m.Conn.PrepareContext(ctx, query)
 	if err != nil {
@@ -169,8 +169,8 @@ func (m *mysqlArticleRepository) Delete(ctx context.Context, id int64) error {
 
 	return nil
 }
-func (m *mysqlArticleRepository) Update(ctx context.Context, ar *models.Article) error {
-	query := `UPDATE article set title=?, content=?, author_id=?, updated_at=? WHERE ID = ?`
+func (m *mysqlWalletRepository) Update(ctx context.Context, ar *models.Wallet) error {
+	query := `UPDATE wallet set title=?, content=?, author_id=?, updated_at=? WHERE ID = ?`
 
 	stmt, err := m.Conn.PrepareContext(ctx, query)
 	if err != nil {

@@ -9,8 +9,8 @@ import (
 	"github.com/sirupsen/logrus"
 	validator "gopkg.in/go-playground/validator.v9"
 
-	"github.com/bxcodec/go-clean-arch/article"
-	"github.com/bxcodec/go-clean-arch/models"
+	"github.com/williamchand/my-wallet/wallet"
+	"github.com/williamchand/my-wallet/models"
 )
 
 // ResponseError represent the reseponse error struct
@@ -18,24 +18,24 @@ type ResponseError struct {
 	Message string `json:"message"`
 }
 
-// ArticleHandler  represent the httphandler for article
-type ArticleHandler struct {
-	AUsecase article.Usecase
+// WalletHandler  represent the httphandler for wallet
+type WalletHandler struct {
+	AUsecase wallet.Usecase
 }
 
-// NewArticleHandler will initialize the articles/ resources endpoint
-func NewArticleHandler(e *echo.Echo, us article.Usecase) {
-	handler := &ArticleHandler{
+// NewWalletHandler will initialize the wallets/ resources endpoint
+func NewWalletHandler(e *echo.Echo, us wallet.Usecase) {
+	handler := &WalletHandler{
 		AUsecase: us,
 	}
-	e.GET("/articles", handler.FetchArticle)
-	e.POST("/articles", handler.Store)
-	e.GET("/articles/:id", handler.GetByID)
-	e.DELETE("/articles/:id", handler.Delete)
+	e.GET("/wallets", handler.FetchWallet)
+	e.POST("/wallets", handler.Store)
+	e.GET("/wallets/:id", handler.GetByID)
+	e.DELETE("/wallets/:id", handler.Delete)
 }
 
-// FetchArticle will fetch the article based on given params
-func (a *ArticleHandler) FetchArticle(c echo.Context) error {
+// FetchWallet will fetch the wallet based on given params
+func (a *WalletHandler) FetchWallet(c echo.Context) error {
 	numS := c.QueryParam("num")
 	num, _ := strconv.Atoi(numS)
 	cursor := c.QueryParam("cursor")
@@ -52,8 +52,8 @@ func (a *ArticleHandler) FetchArticle(c echo.Context) error {
 	return c.JSON(http.StatusOK, listAr)
 }
 
-// GetByID will get article by given id
-func (a *ArticleHandler) GetByID(c echo.Context) error {
+// GetByID will get wallet by given id
+func (a *WalletHandler) GetByID(c echo.Context) error {
 	idP, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
 		return c.JSON(http.StatusNotFound, models.ErrNotFound.Error())
@@ -72,7 +72,7 @@ func (a *ArticleHandler) GetByID(c echo.Context) error {
 	return c.JSON(http.StatusOK, art)
 }
 
-func isRequestValid(m *models.Article) (bool, error) {
+func isRequestValid(m *models.Wallet) (bool, error) {
 	validate := validator.New()
 	err := validate.Struct(m)
 	if err != nil {
@@ -81,15 +81,15 @@ func isRequestValid(m *models.Article) (bool, error) {
 	return true, nil
 }
 
-// Store will store the article by given request body
-func (a *ArticleHandler) Store(c echo.Context) error {
-	var article models.Article
-	err := c.Bind(&article)
+// Store will store the wallet by given request body
+func (a *WalletHandler) Store(c echo.Context) error {
+	var wallet models.Wallet
+	err := c.Bind(&wallet)
 	if err != nil {
 		return c.JSON(http.StatusUnprocessableEntity, err.Error())
 	}
 
-	if ok, err := isRequestValid(&article); !ok {
+	if ok, err := isRequestValid(&wallet); !ok {
 		return c.JSON(http.StatusBadRequest, err.Error())
 	}
 	ctx := c.Request().Context()
@@ -97,16 +97,16 @@ func (a *ArticleHandler) Store(c echo.Context) error {
 		ctx = context.Background()
 	}
 
-	err = a.AUsecase.Store(ctx, &article)
+	err = a.AUsecase.Store(ctx, &wallet)
 
 	if err != nil {
 		return c.JSON(getStatusCode(err), ResponseError{Message: err.Error()})
 	}
-	return c.JSON(http.StatusCreated, article)
+	return c.JSON(http.StatusCreated, wallet)
 }
 
-// Delete will delete article by given param
-func (a *ArticleHandler) Delete(c echo.Context) error {
+// Delete will delete wallet by given param
+func (a *WalletHandler) Delete(c echo.Context) error {
 	idP, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
 		return c.JSON(http.StatusNotFound, models.ErrNotFound.Error())

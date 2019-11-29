@@ -15,32 +15,32 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	articleHttp "github.com/bxcodec/go-clean-arch/article/delivery/http"
-	"github.com/bxcodec/go-clean-arch/article/mocks"
-	"github.com/bxcodec/go-clean-arch/models"
+	walletHttp "github.com/williamchand/my-wallet/wallet/delivery/http"
+	"github.com/williamchand/my-wallet/wallet/mocks"
+	"github.com/williamchand/my-wallet/models"
 )
 
 func TestFetch(t *testing.T) {
-	var mockArticle models.Article
-	err := faker.FakeData(&mockArticle)
+	var mockWallet models.Wallet
+	err := faker.FakeData(&mockWallet)
 	assert.NoError(t, err)
 	mockUCase := new(mocks.Usecase)
-	mockListArticle := make([]*models.Article, 0)
-	mockListArticle = append(mockListArticle, &mockArticle)
+	mockListWallet := make([]*models.Wallet, 0)
+	mockListWallet = append(mockListWallet, &mockWallet)
 	num := 1
 	cursor := "2"
-	mockUCase.On("Fetch", mock.Anything, cursor, int64(num)).Return(mockListArticle, "10", nil)
+	mockUCase.On("Fetch", mock.Anything, cursor, int64(num)).Return(mockListWallet, "10", nil)
 
 	e := echo.New()
-	req, err := http.NewRequest(echo.GET, "/article?num=1&cursor="+cursor, strings.NewReader(""))
+	req, err := http.NewRequest(echo.GET, "/wallet?num=1&cursor="+cursor, strings.NewReader(""))
 	assert.NoError(t, err)
 
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
-	handler := articleHttp.ArticleHandler{
+	handler := walletHttp.WalletHandler{
 		AUsecase: mockUCase,
 	}
-	err = handler.FetchArticle(c)
+	err = handler.FetchWallet(c)
 	require.NoError(t, err)
 
 	responseCursor := rec.Header().Get("X-Cursor")
@@ -56,15 +56,15 @@ func TestFetchError(t *testing.T) {
 	mockUCase.On("Fetch", mock.Anything, cursor, int64(num)).Return(nil, "", models.ErrInternalServerError)
 
 	e := echo.New()
-	req, err := http.NewRequest(echo.GET, "/article?num=1&cursor="+cursor, strings.NewReader(""))
+	req, err := http.NewRequest(echo.GET, "/wallet?num=1&cursor="+cursor, strings.NewReader(""))
 	assert.NoError(t, err)
 
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
-	handler := articleHttp.ArticleHandler{
+	handler := walletHttp.WalletHandler{
 		AUsecase: mockUCase,
 	}
-	err = handler.FetchArticle(c)
+	err = handler.FetchWallet(c)
 	require.NoError(t, err)
 
 	responseCursor := rec.Header().Get("X-Cursor")
@@ -74,26 +74,26 @@ func TestFetchError(t *testing.T) {
 }
 
 func TestGetByID(t *testing.T) {
-	var mockArticle models.Article
-	err := faker.FakeData(&mockArticle)
+	var mockWallet models.Wallet
+	err := faker.FakeData(&mockWallet)
 	assert.NoError(t, err)
 
 	mockUCase := new(mocks.Usecase)
 
-	num := int(mockArticle.ID)
+	num := int(mockWallet.ID)
 
-	mockUCase.On("GetByID", mock.Anything, int64(num)).Return(&mockArticle, nil)
+	mockUCase.On("GetByID", mock.Anything, int64(num)).Return(&mockWallet, nil)
 
 	e := echo.New()
-	req, err := http.NewRequest(echo.GET, "/article/"+strconv.Itoa(num), strings.NewReader(""))
+	req, err := http.NewRequest(echo.GET, "/wallet/"+strconv.Itoa(num), strings.NewReader(""))
 	assert.NoError(t, err)
 
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
-	c.SetPath("article/:id")
+	c.SetPath("wallet/:id")
 	c.SetParamNames("id")
 	c.SetParamValues(strconv.Itoa(num))
-	handler := articleHttp.ArticleHandler{
+	handler := walletHttp.WalletHandler{
 		AUsecase: mockUCase,
 	}
 	err = handler.GetByID(c)
@@ -104,32 +104,32 @@ func TestGetByID(t *testing.T) {
 }
 
 func TestStore(t *testing.T) {
-	mockArticle := models.Article{
+	mockWallet := models.Wallet{
 		Title:     "Title",
 		Content:   "Content",
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
 	}
 
-	tempMockArticle := mockArticle
-	tempMockArticle.ID = 0
+	tempMockWallet := mockWallet
+	tempMockWallet.ID = 0
 	mockUCase := new(mocks.Usecase)
 
-	j, err := json.Marshal(tempMockArticle)
+	j, err := json.Marshal(tempMockWallet)
 	assert.NoError(t, err)
 
-	mockUCase.On("Store", mock.Anything, mock.AnythingOfType("*models.Article")).Return(nil)
+	mockUCase.On("Store", mock.Anything, mock.AnythingOfType("*models.Wallet")).Return(nil)
 
 	e := echo.New()
-	req, err := http.NewRequest(echo.POST, "/article", strings.NewReader(string(j)))
+	req, err := http.NewRequest(echo.POST, "/wallet", strings.NewReader(string(j)))
 	assert.NoError(t, err)
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
-	c.SetPath("/article")
+	c.SetPath("/wallet")
 
-	handler := articleHttp.ArticleHandler{
+	handler := walletHttp.WalletHandler{
 		AUsecase: mockUCase,
 	}
 	err = handler.Store(c)
@@ -140,26 +140,26 @@ func TestStore(t *testing.T) {
 }
 
 func TestDelete(t *testing.T) {
-	var mockArticle models.Article
-	err := faker.FakeData(&mockArticle)
+	var mockWallet models.Wallet
+	err := faker.FakeData(&mockWallet)
 	assert.NoError(t, err)
 
 	mockUCase := new(mocks.Usecase)
 
-	num := int(mockArticle.ID)
+	num := int(mockWallet.ID)
 
 	mockUCase.On("Delete", mock.Anything, int64(num)).Return(nil)
 
 	e := echo.New()
-	req, err := http.NewRequest(echo.DELETE, "/article/"+strconv.Itoa(num), strings.NewReader(""))
+	req, err := http.NewRequest(echo.DELETE, "/wallet/"+strconv.Itoa(num), strings.NewReader(""))
 	assert.NoError(t, err)
 
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
-	c.SetPath("article/:id")
+	c.SetPath("wallet/:id")
 	c.SetParamNames("id")
 	c.SetParamValues(strconv.Itoa(num))
-	handler := articleHttp.ArticleHandler{
+	handler := walletHttp.WalletHandler{
 		AUsecase: mockUCase,
 	}
 	err = handler.Delete(c)

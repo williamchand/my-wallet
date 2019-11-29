@@ -7,21 +7,21 @@ import (
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/bxcodec/go-clean-arch/article"
-	"github.com/bxcodec/go-clean-arch/author"
-	"github.com/bxcodec/go-clean-arch/models"
+	"github.com/williamchand/my-wallet/wallet"
+	"github.com/williamchand/my-wallet/author"
+	"github.com/williamchand/my-wallet/models"
 )
 
-type articleUsecase struct {
-	articleRepo    article.Repository
+type walletUsecase struct {
+	walletRepo    wallet.Repository
 	authorRepo     author.Repository
 	contextTimeout time.Duration
 }
 
-// NewArticleUsecase will create new an articleUsecase object representation of article.Usecase interface
-func NewArticleUsecase(a article.Repository, ar author.Repository, timeout time.Duration) article.Usecase {
-	return &articleUsecase{
-		articleRepo:    a,
+// NewWalletUsecase will create new an walletUsecase object representation of wallet.Usecase interface
+func NewWalletUsecase(a wallet.Repository, ar author.Repository, timeout time.Duration) wallet.Usecase {
+	return &walletUsecase{
+		walletRepo:    a,
 		authorRepo:     ar,
 		contextTimeout: timeout,
 	}
@@ -32,15 +32,15 @@ func NewArticleUsecase(a article.Repository, ar author.Repository, timeout time.
 * Look how this works in this package explanation
 * in godoc: https://godoc.org/golang.org/x/sync/errgroup#ex-Group--Pipeline
  */
-func (a *articleUsecase) fillAuthorDetails(c context.Context, data []*models.Article) ([]*models.Article, error) {
+func (a *walletUsecase) fillAuthorDetails(c context.Context, data []*models.Wallet) ([]*models.Wallet, error) {
 
 	g, ctx := errgroup.WithContext(c)
 
 	// Get the author's id
 	mapAuthors := map[int64]models.Author{}
 
-	for _, article := range data {
-		mapAuthors[article.Author.ID] = models.Author{}
+	for _, wallet := range data {
+		mapAuthors[wallet.Author.ID] = models.Author{}
 	}
 	// Using goroutine to fetch the author's detail
 	chanAuthor := make(chan *models.Author)
@@ -84,7 +84,7 @@ func (a *articleUsecase) fillAuthorDetails(c context.Context, data []*models.Art
 	return data, nil
 }
 
-func (a *articleUsecase) Fetch(c context.Context, cursor string, num int64) ([]*models.Article, string, error) {
+func (a *walletUsecase) Fetch(c context.Context, cursor string, num int64) ([]*models.Wallet, string, error) {
 	if num == 0 {
 		num = 10
 	}
@@ -92,25 +92,25 @@ func (a *articleUsecase) Fetch(c context.Context, cursor string, num int64) ([]*
 	ctx, cancel := context.WithTimeout(c, a.contextTimeout)
 	defer cancel()
 
-	listArticle, nextCursor, err := a.articleRepo.Fetch(ctx, cursor, num)
+	listWallet, nextCursor, err := a.walletRepo.Fetch(ctx, cursor, num)
 	if err != nil {
 		return nil, "", err
 	}
 
-	listArticle, err = a.fillAuthorDetails(ctx, listArticle)
+	listWallet, err = a.fillAuthorDetails(ctx, listWallet)
 	if err != nil {
 		return nil, "", err
 	}
 
-	return listArticle, nextCursor, nil
+	return listWallet, nextCursor, nil
 }
 
-func (a *articleUsecase) GetByID(c context.Context, id int64) (*models.Article, error) {
+func (a *walletUsecase) GetByID(c context.Context, id int64) (*models.Wallet, error) {
 
 	ctx, cancel := context.WithTimeout(c, a.contextTimeout)
 	defer cancel()
 
-	res, err := a.articleRepo.GetByID(ctx, id)
+	res, err := a.walletRepo.GetByID(ctx, id)
 	if err != nil {
 		return nil, err
 	}
@@ -123,20 +123,20 @@ func (a *articleUsecase) GetByID(c context.Context, id int64) (*models.Article, 
 	return res, nil
 }
 
-func (a *articleUsecase) Update(c context.Context, ar *models.Article) error {
+func (a *walletUsecase) Update(c context.Context, ar *models.Wallet) error {
 
 	ctx, cancel := context.WithTimeout(c, a.contextTimeout)
 	defer cancel()
 
 	ar.UpdatedAt = time.Now()
-	return a.articleRepo.Update(ctx, ar)
+	return a.walletRepo.Update(ctx, ar)
 }
 
-func (a *articleUsecase) GetByTitle(c context.Context, title string) (*models.Article, error) {
+func (a *walletUsecase) GetByTitle(c context.Context, title string) (*models.Wallet, error) {
 
 	ctx, cancel := context.WithTimeout(c, a.contextTimeout)
 	defer cancel()
-	res, err := a.articleRepo.GetByTitle(ctx, title)
+	res, err := a.walletRepo.GetByTitle(ctx, title)
 	if err != nil {
 		return nil, err
 	}
@@ -150,31 +150,31 @@ func (a *articleUsecase) GetByTitle(c context.Context, title string) (*models.Ar
 	return res, nil
 }
 
-func (a *articleUsecase) Store(c context.Context, m *models.Article) error {
+func (a *walletUsecase) Store(c context.Context, m *models.Wallet) error {
 
 	ctx, cancel := context.WithTimeout(c, a.contextTimeout)
 	defer cancel()
-	existedArticle, _ := a.GetByTitle(ctx, m.Title)
-	if existedArticle != nil {
+	existedWallet, _ := a.GetByTitle(ctx, m.Title)
+	if existedWallet != nil {
 		return models.ErrConflict
 	}
 
-	err := a.articleRepo.Store(ctx, m)
+	err := a.walletRepo.Store(ctx, m)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func (a *articleUsecase) Delete(c context.Context, id int64) error {
+func (a *walletUsecase) Delete(c context.Context, id int64) error {
 	ctx, cancel := context.WithTimeout(c, a.contextTimeout)
 	defer cancel()
-	existedArticle, err := a.articleRepo.GetByID(ctx, id)
+	existedWallet, err := a.walletRepo.GetByID(ctx, id)
 	if err != nil {
 		return err
 	}
-	if existedArticle == nil {
+	if existedWallet == nil {
 		return models.ErrNotFound
 	}
-	return a.articleRepo.Delete(ctx, id)
+	return a.walletRepo.Delete(ctx, id)
 }

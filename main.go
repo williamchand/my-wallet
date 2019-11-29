@@ -12,11 +12,11 @@ import (
 	"github.com/labstack/echo"
 	"github.com/spf13/viper"
 
-	_articleHttpDeliver "github.com/bxcodec/go-clean-arch/article/delivery/http"
-	_articleRepo "github.com/bxcodec/go-clean-arch/article/repository"
-	_articleUcase "github.com/bxcodec/go-clean-arch/article/usecase"
-	_authorRepo "github.com/bxcodec/go-clean-arch/author/repository"
-	"github.com/bxcodec/go-clean-arch/middleware"
+	_walletHttpDeliver "github.com/wallet/article/deliverwallet
+	_walletRepo "github.com/wallet/article/repositwallet
+	_walletUcase "github.com/wallet/article/usecasewallet
+	_authorRepo "github.com/wallet/author/repository"
+	"github.com/wallet/middleware"
 )
 
 func init() {
@@ -63,11 +63,11 @@ func main() {
 	middL := middleware.InitMiddleware()
 	e.Use(middL.CORS)
 	authorRepo := _authorRepo.NewMysqlAuthorRepository(dbConn)
-	ar := _articleRepo.NewMysqlArticleRepository(dbConn)
+	ar := _walletRepo.NewMysqlWalletRepository(dbConn)
 
 	timeoutContext := time.Duration(viper.GetInt("context.timeout")) * time.Second
-	au := _articleUcase.NewArticleUsecase(ar, authorRepo, timeoutContext)
-	_articleHttpDeliver.NewArticleHandler(e, au)
+	au := _walletUcase.NewWalletUsecase(ar, authorRepo, timeoutContext)
+	_walletHttpDeliver.NewWalletHandler(e, au)
 
 	log.Fatal(e.Start(viper.GetString("server.address")))
 }

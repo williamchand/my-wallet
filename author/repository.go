@@ -3,7 +3,7 @@ package author
 import (
 	"context"
 
-	"github.com/bxcodec/go-clean-arch/models"
+	"github.com/williamchand/my-wallet/models"
 )
 
 // Repository represent the author's repository contract

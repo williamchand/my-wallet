@@ -1,10 +1,11 @@
-module github.com/bxcodec/go-clean-arch
+module github.com/wallet
 
 go 1.12
 
 require (
 	github.com/BurntSushi/toml v0.3.1 // indirect
 	github.com/bxcodec/faker v1.4.2
+	github.com/bxcodec/go-clean-arch v2.0.1+incompatible // indirect
 	github.com/davecgh/go-spew v1.1.0 // indirect
 	github.com/go-playground/locales v0.12.1 // indirect
 	github.com/go-playground/universal-translator v0.16.0 // indirect
@@ -30,6 +31,7 @@ require (
 	github.com/stretchr/testify v1.2.1
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasttemplate v0.0.0-20170224212429-dcecefd839c4 // indirect
+	github.com/williamchand/my-wallet v2.0.1+incompatible
 	golang.org/x/crypto v0.0.0-20180426230345-b49d69b5da94 // indirect
 	golang.org/x/sync v0.0.0-20181108010431-42b317875d0f
 	gopkg.in/DATA-DOG/go-sqlmock.v1 v1.3.0
