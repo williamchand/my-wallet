@@ -8,10 +8,10 @@ import (
 
 // Repository represent the wallet's repository contract
 type Repository interface {
-	Fetch(ctx context.Context, cursor string, num int64) (res []*models.Wallet, nextCursor string, err error)
-	GetByID(ctx context.Context, id int64) (*models.Wallet, error)
-	GetByTitle(ctx context.Context, title string) (*models.Wallet, error)
-	Update(ctx context.Context, ar *models.Wallet) error
-	Store(ctx context.Context, a *models.Wallet) error
-	Delete(ctx context.Context, id int64) error
+	EnableWallet(ctx context.Context, id string) (*models.FetchWallet, error)
+	FetchWallet(ctx context.Context, id string) (*models.FetchWallet, error)
+	AddWallet(ctx context.Context, req *models.ReqTransaction, id string) (*models.TransactionDeposit, error)
+	WithdrawWallet(ctx context.Context, req *models.ReqTransaction, id string) (*models.TransactionWithdraw, error)
+	DisableWallet(ctx context.Context, isDisabled bool, id string) (*models.WalletDisabled, error)
+	InitWallet(ctx context.Context, customer_id string) (*models.FetchWallet, error)
 }

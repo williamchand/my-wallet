@@ -3,14 +3,12 @@ package repository
 import (
 	"context"
 	"database/sql"
-	"encoding/base64"
-	"fmt"
 	"time"
 
 	"github.com/sirupsen/logrus"
 
-	"github.com/williamchand/my-wallet/wallet"
 	"github.com/williamchand/my-wallet/models"
+	"github.com/williamchand/my-wallet/wallet"
 )
 
 const (
@@ -26,7 +24,280 @@ func NewMysqlWalletRepository(Conn *sql.DB) wallet.Repository {
 	return &mysqlWalletRepository{Conn}
 }
 
-func (m *mysqlWalletRepository) fetch(ctx context.Context, query string, args ...interface{}) ([]*models.Wallet, error) {
+func (m *mysqlWalletRepository) EnableWallet(ctx context.Context, id string) (*models.FetchWallet, error) {
+	query := `UPDATE wallet set status = "enabled" updated_at=? WHERE wallet_id = ? AND status = "disabled"`
+
+	stmt, err := m.Conn.PrepareContext(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+
+	rowUpdate, err := stmt.ExecContext(ctx, time.Now(), id)
+	if err != nil {
+		return nil, err
+	}
+	affect, err := rowUpdate.RowsAffected()
+	if err != nil {
+		return nil, err
+	}
+	if affect != 1 {
+		return nil, models.ErrAlreadyEnabled
+	}
+
+	res, err := m.FetchWallet(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	return res, nil
+}
+
+func (m *mysqlWalletRepository) FetchWallet(ctx context.Context, id string) (*models.FetchWallet, error) {
+	query := `SELECT id, owned_by, status, updated_at, balance 
+			  FROM wallet WHERE wallet_id = ? AND status = "enabled"`
+
+	list, err := m.fetchWallet(ctx, query, id)
+	if err != nil {
+		return nil, err
+	}
+
+	res := &models.FetchWallet{}
+	if len(list) > 0 {
+		res = &models.FetchWallet{
+			ID:        list[0].ID,
+			OwnedBy:   list[0].OwnedBy,
+			Status:    list[0].Status,
+			EnabledAt: list[0].UpdatedAt,
+			Balance:   list[0].Balance,
+		}
+	} else {
+		return nil, models.ErrDisabled
+	}
+
+	return res, nil
+}
+
+func (m *mysqlWalletRepository) FetchDisabledWallet(ctx context.Context, id string) (*models.WalletDisabled, error) {
+	query := `SELECT id, owned_by, status, updated_at, balance 
+			  FROM wallet WHERE wallet_id = ? AND status = "disabled"`
+
+	list, err := m.fetchWallet(ctx, query, id)
+	if err != nil {
+		return nil, err
+	}
+
+	res := &models.WalletDisabled{}
+	if len(list) > 0 {
+		res = &models.WalletDisabled{
+			ID:         list[0].ID,
+			OwnedBy:    list[0].OwnedBy,
+			Status:     list[0].Status,
+			DisabledAt: list[0].UpdatedAt,
+			Balance:    list[0].Balance,
+		}
+	} else {
+		return nil, models.ErrNotFound
+	}
+
+	return res, nil
+}
+
+func (m *mysqlWalletRepository) FetchTransactionAdd(ctx context.Context, id int64) (*models.TransactionDeposit, error) {
+	query := `SELECT reference_id, wallet_id, amount, status, created_by, created_at
+			  FROM transaction WHERE id = ?`
+	list, err := m.fetchTransaction(ctx, query, id)
+	if err != nil {
+		return nil, err
+	}
+
+	res := &models.TransactionDeposit{}
+	if len(list) > 0 {
+		res = &models.TransactionDeposit{
+			ReferenceID: list[0].ReferenceID,
+			ID:          list[0].ID,
+			Amount:      list[0].Amount,
+			Status:      list[0].Status,
+			DepositBy:   list[0].CreatedBy,
+			DepositAt:   list[0].CreatedAt,
+		}
+	} else {
+		return nil, models.ErrDisabled
+	}
+
+	return res, nil
+}
+
+func (m *mysqlWalletRepository) FetchTransactionWithdraw(ctx context.Context, id int64) (*models.TransactionWithdraw, error) {
+	query := `SELECT reference_id, wallet_id, amount, status, created_by, created_at
+			  FROM transaction WHERE id = ?`
+
+	list, err := m.fetchTransaction(ctx, query, id)
+	if err != nil {
+		return nil, err
+	}
+
+	res := &models.TransactionWithdraw{}
+	if len(list) > 0 {
+		res = &models.TransactionWithdraw{
+			ReferenceID: list[0].ReferenceID,
+			ID:          list[0].ID,
+			Amount:      list[0].Amount,
+			Status:      list[0].Status,
+			WithdrawnBy: list[0].CreatedBy,
+			WithdrawnAt: list[0].CreatedAt,
+		}
+	} else {
+		return nil, models.ErrDisabled
+	}
+
+	return res, nil
+}
+
+func (m *mysqlWalletRepository) AddWallet(ctx context.Context, req *models.ReqTransaction, id string) (*models.TransactionDeposit, error) {
+	wallet, err := m.FetchWallet(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	balance := wallet.Balance + req.Amount
+	query := `UPDATE wallet set balance = ? WHERE wallet_id = ?`
+
+	stmt, err := m.Conn.PrepareContext(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	_, err = stmt.ExecContext(ctx, balance, id)
+	if err != nil {
+		return nil, err
+	}
+
+	query2 := `INSERT INTO transaction (reference_id, wallet_id, type, amount, status, created_by) VALUES (?,?,0,?,?,?);`
+
+	stmt, err = m.Conn.PrepareContext(ctx, query2)
+	if err != nil {
+		return nil, err
+	}
+
+	rowInsert, err := stmt.ExecContext(ctx, req.ReferenceID, wallet.ID, req.Amount, "success", wallet.OwnedBy)
+	if err != nil {
+		return nil, err
+	}
+
+	lastID, err := rowInsert.LastInsertId()
+	if err != nil {
+		return nil, err
+	}
+
+	res, err := m.FetchTransactionAdd(ctx, lastID)
+	if err != nil {
+		return nil, err
+	}
+
+	return res, nil
+}
+
+func (m *mysqlWalletRepository) WithdrawWallet(ctx context.Context, req *models.ReqTransaction, id string) (*models.TransactionWithdraw, error) {
+	wallet, err := m.FetchWallet(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	balance := wallet.Balance - req.Amount
+	query := `UPDATE wallet set balance = ? WHERE wallet_id = ?`
+
+	stmt, err := m.Conn.PrepareContext(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	_, err = stmt.ExecContext(ctx, balance, id)
+	if err != nil {
+		return nil, err
+	}
+
+	query2 := `INSERT INTO transaction (reference_id, wallet_id, type, amount, status, created_by) VALUES (?,?,1,?,?,?);`
+
+	stmt, err = m.Conn.PrepareContext(ctx, query2)
+	if err != nil {
+		return nil, err
+	}
+
+	status := "success"
+	if balance < 0 {
+		status = "failed"
+	}
+
+	rowInsert, err := stmt.ExecContext(ctx, req.ReferenceID, wallet.ID, req.Amount, status, wallet.OwnedBy)
+	if err != nil {
+		return nil, err
+	}
+
+	if balance < 0 {
+		return nil, models.ErrBadParamInput
+	}
+
+	lastID, err := rowInsert.LastInsertId()
+	if err != nil {
+		return nil, err
+	}
+
+	res, err := m.FetchTransactionWithdraw(ctx, lastID)
+	if err != nil {
+		return nil, err
+	}
+
+	return res, nil
+}
+
+func (m *mysqlWalletRepository) DisableWallet(ctx context.Context, isDisabled bool, id string) (*models.WalletDisabled, error) {
+	query := `UPDATE wallet set status = "disabled" updated_at=? WHERE wallet_id = ? AND status = "enabled"`
+
+	stmt, err := m.Conn.PrepareContext(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+
+	rowUpdate, err := stmt.ExecContext(ctx, time.Now(), id)
+	if err != nil {
+		return nil, err
+	}
+	affect, err := rowUpdate.RowsAffected()
+	if err != nil {
+		return nil, err
+	}
+	if affect != 1 {
+		return nil, models.ErrDisabled
+	}
+
+	res, err := m.FetchDisabledWallet(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	return res, nil
+}
+
+func (m *mysqlWalletRepository) InitWallet(ctx context.Context, customer_id string) (*models.FetchWallet, error) {
+	query2 := `INSERT INTO wallet (wallet_id, owned_by, status, balance) VALUES (?,"william-chandra","enabled",0);`
+
+	stmt, err := m.Conn.PrepareContext(ctx, query2)
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = stmt.ExecContext(ctx, customer_id)
+	if err != nil {
+		return nil, err
+	}
+
+	res, err := m.FetchWallet(ctx, customer_id)
+	if err != nil {
+		return nil, err
+	}
+
+	return res, nil
+}
+
+func (m *mysqlWalletRepository) fetchWallet(ctx context.Context, query string, args ...interface{}) ([]*models.Wallet, error) {
 	rows, err := m.Conn.QueryContext(ctx, query, args...)
 	if err != nil {
 		logrus.Error(err)
@@ -43,22 +314,17 @@ func (m *mysqlWalletRepository) fetch(ctx context.Context, query string, args ..
 	result := make([]*models.Wallet, 0)
 	for rows.Next() {
 		t := new(models.Wallet)
-		authorID := int64(0)
 		err = rows.Scan(
 			&t.ID,
-			&t.Title,
-			&t.Content,
-			&authorID,
+			&t.OwnedBy,
+			&t.Status,
 			&t.UpdatedAt,
-			&t.CreatedAt,
+			&t.Balance,
 		)
 
 		if err != nil {
 			logrus.Error(err)
 			return nil, err
-		}
-		t.Author = models.Author{
-			ID: authorID,
 		}
 		result = append(result, t)
 	}
@@ -66,150 +332,39 @@ func (m *mysqlWalletRepository) fetch(ctx context.Context, query string, args ..
 	return result, nil
 }
 
-func (m *mysqlWalletRepository) Fetch(ctx context.Context, cursor string, num int64) ([]*models.Wallet, string, error) {
-	query := `SELECT id,title,content, author_id, updated_at, created_at
-  						FROM wallet WHERE created_at > ? ORDER BY created_at LIMIT ? `
-
-	decodedCursor, err := DecodeCursor(cursor)
-	if err != nil && cursor != "" {
-		return nil, "", models.ErrBadParamInput
-	}
-
-	res, err := m.fetch(ctx, query, decodedCursor, num)
+func (m *mysqlWalletRepository) fetchTransaction(ctx context.Context, query string, args ...interface{}) ([]*models.Transaction, error) {
+	rows, err := m.Conn.QueryContext(ctx, query, args...)
 	if err != nil {
-		return nil, "", err
-	}
-
-	nextCursor := ""
-	if len(res) == int(num) {
-		nextCursor = EncodeCursor(res[len(res)-1].CreatedAt)
-	}
-
-	return res, nextCursor, err
-}
-func (m *mysqlWalletRepository) GetByID(ctx context.Context, id int64) (res *models.Wallet, err error) {
-	query := `SELECT id,title,content, author_id, updated_at, created_at
-  						FROM wallet WHERE ID = ?`
-
-	list, err := m.fetch(ctx, query, id)
-	if err != nil {
+		logrus.Error(err)
 		return nil, err
 	}
 
-	if len(list) > 0 {
-		res = list[0]
-	} else {
-		return nil, models.ErrNotFound
+	defer func() {
+		err := rows.Close()
+		if err != nil {
+			logrus.Error(err)
+		}
+	}()
+
+	result := make([]*models.Transaction, 0)
+	for rows.Next() {
+		t := new(models.Transaction)
+		err = rows.Scan(
+			&t.ReferenceID,
+			&t.ID,
+			&t.Type,
+			&t.Amount,
+			&t.Status,
+			&t.CreatedBy,
+			&t.CreatedAt,
+		)
+
+		if err != nil {
+			logrus.Error(err)
+			return nil, err
+		}
+		result = append(result, t)
 	}
 
-	return
-}
-
-func (m *mysqlWalletRepository) GetByTitle(ctx context.Context, title string) (res *models.Wallet, err error) {
-	query := `SELECT id,title,content, author_id, updated_at, created_at
-  						FROM wallet WHERE title = ?`
-
-	list, err := m.fetch(ctx, query, title)
-	if err != nil {
-		return
-	}
-
-	if len(list) > 0 {
-		res = list[0]
-	} else {
-		return nil, models.ErrNotFound
-	}
-	return
-}
-
-func (m *mysqlWalletRepository) Store(ctx context.Context, a *models.Wallet) error {
-	query := `INSERT  wallet SET title=? , content=? , author_id=?, updated_at=? , created_at=?`
-	stmt, err := m.Conn.PrepareContext(ctx, query)
-	if err != nil {
-		return err
-	}
-
-	res, err := stmt.ExecContext(ctx, a.Title, a.Content, a.Author.ID, a.UpdatedAt, a.CreatedAt)
-	if err != nil {
-		return err
-	}
-
-	lastID, err := res.LastInsertId()
-	if err != nil {
-		return err
-	}
-
-	a.ID = lastID
-	return nil
-}
-
-func (m *mysqlWalletRepository) Delete(ctx context.Context, id int64) error {
-	query := "DELETE FROM wallet WHERE id = ?"
-
-	stmt, err := m.Conn.PrepareContext(ctx, query)
-	if err != nil {
-		return err
-	}
-
-	res, err := stmt.ExecContext(ctx, id)
-	if err != nil {
-
-		return err
-	}
-
-	rowsAfected, err := res.RowsAffected()
-	if err != nil {
-		return err
-	}
-
-	if rowsAfected != 1 {
-		err = fmt.Errorf("Weird  Behaviour. Total Affected: %d", rowsAfected)
-		return err
-	}
-
-	return nil
-}
-func (m *mysqlWalletRepository) Update(ctx context.Context, ar *models.Wallet) error {
-	query := `UPDATE wallet set title=?, content=?, author_id=?, updated_at=? WHERE ID = ?`
-
-	stmt, err := m.Conn.PrepareContext(ctx, query)
-	if err != nil {
-		return nil
-	}
-
-	res, err := stmt.ExecContext(ctx, ar.Title, ar.Content, ar.Author.ID, ar.UpdatedAt, ar.ID)
-	if err != nil {
-		return err
-	}
-	affect, err := res.RowsAffected()
-	if err != nil {
-		return err
-	}
-	if affect != 1 {
-		err = fmt.Errorf("Weird  Behaviour. Total Affected: %d", affect)
-
-		return err
-	}
-
-	return nil
-}
-
-// DecodeCursor will decode cursor from user for mysql
-func DecodeCursor(encodedTime string) (time.Time, error) {
-	byt, err := base64.StdEncoding.DecodeString(encodedTime)
-	if err != nil {
-		return time.Time{}, err
-	}
-
-	timeString := string(byt)
-	t, err := time.Parse(timeFormat, timeString)
-
-	return t, err
-}
-
-// EncodeCursor will encode cursor from mysql to user
-func EncodeCursor(t time.Time) string {
-	timeString := t.Format(timeFormat)
-
-	return base64.StdEncoding.EncodeToString([]byte(timeString))
+	return result, nil
 }

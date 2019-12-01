@@ -2,27 +2,22 @@ package usecase
 
 import (
 	"context"
+	"strings"
 	"time"
 
-	"github.com/sirupsen/logrus"
-	"golang.org/x/sync/errgroup"
-
-	"github.com/williamchand/my-wallet/wallet"
-	"github.com/williamchand/my-wallet/author"
 	"github.com/williamchand/my-wallet/models"
+	"github.com/williamchand/my-wallet/wallet"
 )
 
 type walletUsecase struct {
-	walletRepo    wallet.Repository
-	authorRepo     author.Repository
+	walletRepo     wallet.Repository
 	contextTimeout time.Duration
 }
 
 // NewWalletUsecase will create new an walletUsecase object representation of wallet.Usecase interface
-func NewWalletUsecase(a wallet.Repository, ar author.Repository, timeout time.Duration) wallet.Usecase {
+func NewWalletUsecase(a wallet.Repository, timeout time.Duration) wallet.Usecase {
 	return &walletUsecase{
-		walletRepo:    a,
-		authorRepo:     ar,
+		walletRepo:     a,
 		contextTimeout: timeout,
 	}
 }
@@ -32,149 +27,91 @@ func NewWalletUsecase(a wallet.Repository, ar author.Repository, timeout time.Du
 * Look how this works in this package explanation
 * in godoc: https://godoc.org/golang.org/x/sync/errgroup#ex-Group--Pipeline
  */
-func (a *walletUsecase) fillAuthorDetails(c context.Context, data []*models.Wallet) ([]*models.Wallet, error) {
 
-	g, ctx := errgroup.WithContext(c)
-
-	// Get the author's id
-	mapAuthors := map[int64]models.Author{}
-
-	for _, wallet := range data {
-		mapAuthors[wallet.Author.ID] = models.Author{}
-	}
-	// Using goroutine to fetch the author's detail
-	chanAuthor := make(chan *models.Author)
-	for authorID := range mapAuthors {
-		authorID := authorID
-		g.Go(func() error {
-			res, err := a.authorRepo.GetByID(ctx, authorID)
-			if err != nil {
-				return err
-			}
-			chanAuthor <- res
-			return nil
-		})
-	}
-
-	go func() {
-		err := g.Wait()
-		if err != nil {
-			logrus.Error(err)
-			return
-		}
-		close(chanAuthor)
-	}()
-
-	for author := range chanAuthor {
-		if author != nil {
-			mapAuthors[author.ID] = *author
-		}
-	}
-
-	if err := g.Wait(); err != nil {
-		return nil, err
-	}
-
-	// merge the author's data
-	for index, item := range data {
-		if a, ok := mapAuthors[item.Author.ID]; ok {
-			data[index].Author = a
-		}
-	}
-	return data, nil
-}
-
-func (a *walletUsecase) Fetch(c context.Context, cursor string, num int64) ([]*models.Wallet, string, error) {
-	if num == 0 {
-		num = 10
-	}
+func (a *walletUsecase) EnableWallet(c context.Context, authorization string) (*models.FetchWallet, error) {
 
 	ctx, cancel := context.WithTimeout(c, a.contextTimeout)
 	defer cancel()
-
-	listWallet, nextCursor, err := a.walletRepo.Fetch(ctx, cursor, num)
-	if err != nil {
-		return nil, "", err
-	}
-
-	listWallet, err = a.fillAuthorDetails(ctx, listWallet)
-	if err != nil {
-		return nil, "", err
-	}
-
-	return listWallet, nextCursor, nil
-}
-
-func (a *walletUsecase) GetByID(c context.Context, id int64) (*models.Wallet, error) {
-
-	ctx, cancel := context.WithTimeout(c, a.contextTimeout)
-	defer cancel()
-
-	res, err := a.walletRepo.GetByID(ctx, id)
+	data := JWT(authorization)
+	res, err := a.walletRepo.EnableWallet(ctx, data.ID)
 	if err != nil {
 		return nil, err
 	}
-
-	resAuthor, err := a.authorRepo.GetByID(ctx, res.Author.ID)
-	if err != nil {
-		return nil, err
-	}
-	res.Author = *resAuthor
-	return res, nil
-}
-
-func (a *walletUsecase) Update(c context.Context, ar *models.Wallet) error {
-
-	ctx, cancel := context.WithTimeout(c, a.contextTimeout)
-	defer cancel()
-
-	ar.UpdatedAt = time.Now()
-	return a.walletRepo.Update(ctx, ar)
-}
-
-func (a *walletUsecase) GetByTitle(c context.Context, title string) (*models.Wallet, error) {
-
-	ctx, cancel := context.WithTimeout(c, a.contextTimeout)
-	defer cancel()
-	res, err := a.walletRepo.GetByTitle(ctx, title)
-	if err != nil {
-		return nil, err
-	}
-
-	resAuthor, err := a.authorRepo.GetByID(ctx, res.Author.ID)
-	if err != nil {
-		return nil, err
-	}
-	res.Author = *resAuthor
 
 	return res, nil
 }
 
-func (a *walletUsecase) Store(c context.Context, m *models.Wallet) error {
+func (a *walletUsecase) FetchWallet(c context.Context, authorization string) (*models.FetchWallet, error) {
 
 	ctx, cancel := context.WithTimeout(c, a.contextTimeout)
 	defer cancel()
-	existedWallet, _ := a.GetByTitle(ctx, m.Title)
-	if existedWallet != nil {
-		return models.ErrConflict
+	data := JWT(authorization)
+	res, err := a.walletRepo.FetchWallet(ctx, data.ID)
+	if err != nil {
+		return nil, err
 	}
 
-	err := a.walletRepo.Store(ctx, m)
-	if err != nil {
-		return err
-	}
-	return nil
+	return res, nil
 }
 
-func (a *walletUsecase) Delete(c context.Context, id int64) error {
+func (a *walletUsecase) AddWallet(c context.Context, req *models.ReqTransaction, authorization string) (*models.TransactionDeposit, error) {
+
 	ctx, cancel := context.WithTimeout(c, a.contextTimeout)
 	defer cancel()
-	existedWallet, err := a.walletRepo.GetByID(ctx, id)
+	data := JWT(authorization)
+	res, err := a.walletRepo.AddWallet(ctx, req, data.ID)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	if existedWallet == nil {
-		return models.ErrNotFound
+
+	return res, nil
+}
+
+func (a *walletUsecase) WithdrawWallet(c context.Context, req *models.ReqTransaction, authorization string) (*models.TransactionWithdraw, error) {
+
+	ctx, cancel := context.WithTimeout(c, a.contextTimeout)
+	defer cancel()
+	data := JWT(authorization)
+	res, err := a.walletRepo.WithdrawWallet(ctx, req, data.ID)
+	if err != nil {
+		return nil, err
 	}
-	return a.walletRepo.Delete(ctx, id)
+
+	return res, nil
+}
+
+func (a *walletUsecase) DisableWallet(c context.Context, isDisabled bool, authorization string) (*models.WalletDisabled, error) {
+
+	ctx, cancel := context.WithTimeout(c, a.contextTimeout)
+	defer cancel()
+	data := JWT(authorization)
+	res, err := a.walletRepo.DisableWallet(ctx, isDisabled, data.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	return res, nil
+}
+
+func (a *walletUsecase) InitWallet(c context.Context, costumer_id string) (*models.FetchWallet, error) {
+
+	ctx, cancel := context.WithTimeout(c, a.contextTimeout)
+	defer cancel()
+	res, err := a.walletRepo.InitWallet(ctx, costumer_id)
+	if err != nil {
+		return nil, err
+	}
+
+	return res, nil
+}
+
+//this part for translate authorization to id and owner_id I need your API Method to translate this
+func JWT(token string) *models.User {
+	ss := strings.Fields(token)
+	newToken := ss[1]
+	wallet := models.User{
+		ID:   newToken,
+		Name: "william-chandra",
+	}
+	return &wallet
 }

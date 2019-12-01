@@ -11,4 +11,8 @@ var (
 	ErrConflict = errors.New("Your Item already exist")
 	// ErrBadParamInput will throw if the given request-body or params is not valid
 	ErrBadParamInput = errors.New("Given Param is not valid")
+	// ErrAlreadyEnabled will throw if the wallet is enabled
+	ErrAlreadyEnabled = errors.New("Already enabled")
+	// ErrDisabled will throw if the wallet is disabled
+	ErrDisabled = errors.New("Disabled")
 )

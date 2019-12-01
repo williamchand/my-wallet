@@ -12,11 +12,10 @@ import (
 	"github.com/labstack/echo"
 	"github.com/spf13/viper"
 
+	"github.com/williamchand/my-wallet/middleware"
 	_walletHttpDeliver "github.com/williamchand/my-wallet/wallet/delivery/http"
 	_walletRepo "github.com/williamchand/my-wallet/wallet/repository"
 	_walletUcase "github.com/williamchand/my-wallet/wallet/usecase"
-	_authorRepo "github.com/williamchand/my-wallet/author/repository"
-	"github.com/williamchand/my-wallet/middleware"
 )
 
 func init() {
@@ -62,11 +61,10 @@ func main() {
 	e := echo.New()
 	middL := middleware.InitMiddleware()
 	e.Use(middL.CORS)
-	authorRepo := _authorRepo.NewMysqlAuthorRepository(dbConn)
 	ar := _walletRepo.NewMysqlWalletRepository(dbConn)
 
 	timeoutContext := time.Duration(viper.GetInt("context.timeout")) * time.Second
-	au := _walletUcase.NewWalletUsecase(ar, authorRepo, timeoutContext)
+	au := _walletUcase.NewWalletUsecase(ar, timeoutContext)
 	_walletHttpDeliver.NewWalletHandler(e, au)
 
 	log.Fatal(e.Start(viper.GetString("server.address")))

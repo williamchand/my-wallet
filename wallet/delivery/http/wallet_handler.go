@@ -2,6 +2,7 @@ package http
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"strconv"
 
@@ -9,13 +10,26 @@ import (
 	"github.com/sirupsen/logrus"
 	validator "gopkg.in/go-playground/validator.v9"
 
-	"github.com/williamchand/my-wallet/wallet"
 	"github.com/williamchand/my-wallet/models"
+	"github.com/williamchand/my-wallet/wallet"
 )
 
 // ResponseError represent the reseponse error struct
+type Response struct {
+	Status       string      `json:"status"`
+	ResponseData interface{} `json:"data"`
+}
+type ResponseWallet struct {
+	Wallet interface{} `json:"wallet"`
+}
+type ResponseDeposit struct {
+	Deposit interface{} `json:"deposit"`
+}
+type ResponseWithdrawal struct {
+	Withdrawal interface{} `json:"withdrawal"`
+}
 type ResponseError struct {
-	Message string `json:"message"`
+	Error interface{} `json:"error"`
 }
 
 // WalletHandler  represent the httphandler for wallet
@@ -28,101 +42,198 @@ func NewWalletHandler(e *echo.Echo, us wallet.Usecase) {
 	handler := &WalletHandler{
 		AUsecase: us,
 	}
-	e.GET("/wallets", handler.FetchWallet)
-	e.POST("/wallets", handler.Store)
-	e.GET("/wallets/:id", handler.GetByID)
-	e.DELETE("/wallets/:id", handler.Delete)
+	e.POST("/api/v1/wallet", handler.EnableWallet)
+	e.GET("/api/v1/wallet", handler.FetchWallet)
+	e.POST("/api/v1/wallet/deposits", handler.AddWallet)
+	e.POST("/api/v1/wallet/withdrawals", handler.WithdrawWallet)
+	e.PATCH("/api/v1/wallet", handler.DisableWallet)
+	e.POST("/api/v1/init", handler.InitWallet)
+}
+
+// EnableWallet will enable wallet by given param
+func (a *WalletHandler) EnableWallet(c echo.Context) error {
+	authorization := c.Request().Header.Get("Authorization")
+	ctx := c.Request().Context()
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	res, err := a.AUsecase.EnableWallet(ctx, authorization)
+
+	if err != nil {
+		return c.JSON(getStatusCode(err), Response{Status: "fail", ResponseData: ResponseError{
+			Error: err.Error(),
+		}})
+	}
+
+	return c.JSON(http.StatusOK, Response{Status: "success", ResponseData: ResponseWallet{
+		Wallet: res,
+	}})
 }
 
 // FetchWallet will fetch the wallet based on given params
 func (a *WalletHandler) FetchWallet(c echo.Context) error {
-	numS := c.QueryParam("num")
-	num, _ := strconv.Atoi(numS)
-	cursor := c.QueryParam("cursor")
+	authorization := c.Request().Header.Get("Authorization")
 	ctx := c.Request().Context()
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	listAr, nextCursor, err := a.AUsecase.Fetch(ctx, cursor, int64(num))
+	res, err := a.AUsecase.FetchWallet(ctx, authorization)
 
 	if err != nil {
-		return c.JSON(getStatusCode(err), ResponseError{Message: err.Error()})
+		return c.JSON(getStatusCode(err), Response{Status: "fail", ResponseData: ResponseError{
+			Error: err.Error(),
+		}})
 	}
-	c.Response().Header().Set(`X-Cursor`, nextCursor)
-	return c.JSON(http.StatusOK, listAr)
+
+	return c.JSON(http.StatusOK, Response{Status: "success", ResponseData: ResponseWallet{
+		Wallet: res,
+	}})
 }
 
-// GetByID will get wallet by given id
-func (a *WalletHandler) GetByID(c echo.Context) error {
-	idP, err := strconv.Atoi(c.Param("id"))
+// AddWallet will deposit the wallet by given request body
+func (a *WalletHandler) AddWallet(c echo.Context) error {
+	authorization := c.Request().Header.Get("Authorization")
+	var wallet models.ReqTransaction
+	err := c.Bind(&wallet)
 	if err != nil {
-		return c.JSON(http.StatusNotFound, models.ErrNotFound.Error())
+		return c.JSON(http.StatusUnprocessableEntity, Response{Status: "fail", ResponseData: ResponseError{
+			Error: err.Error(),
+		}})
 	}
 
-	id := int64(idP)
+	if ok, err := isRequestValid(&wallet); !ok {
+		return c.JSON(http.StatusBadRequest, Response{Status: "fail", ResponseData: ResponseError{
+			Error: err.Error(),
+		}})
+	}
 	ctx := c.Request().Context()
 	if ctx == nil {
 		ctx = context.Background()
 	}
 
-	art, err := a.AUsecase.GetByID(ctx, id)
+	res, err := a.AUsecase.AddWallet(ctx, &wallet, authorization)
+
 	if err != nil {
-		return c.JSON(getStatusCode(err), ResponseError{Message: err.Error()})
+		return c.JSON(getStatusCode(err), Response{Status: "fail", ResponseData: ResponseError{
+			Error: err.Error(),
+		}})
 	}
-	return c.JSON(http.StatusOK, art)
+	return c.JSON(http.StatusOK, Response{Status: "success", ResponseData: ResponseDeposit{
+		Deposit: res,
+	}})
 }
 
-func isRequestValid(m *models.Wallet) (bool, error) {
+// WithdrawWallet will withdraw the wallet by given request body
+func (a *WalletHandler) WithdrawWallet(c echo.Context) error {
+	authorization := c.Request().Header.Get("Authorization")
+	var wallet models.ReqTransaction
+	err := c.Bind(&wallet)
+	if err != nil {
+		return c.JSON(http.StatusUnprocessableEntity, Response{Status: "fail", ResponseData: ResponseError{
+			Error: err.Error(),
+		}})
+	}
+
+	if ok, err := isRequestValid(&wallet); !ok {
+		return c.JSON(http.StatusBadRequest, Response{Status: "fail", ResponseData: ResponseError{
+			Error: err.Error(),
+		}})
+	}
+	ctx := c.Request().Context()
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
+	res, err := a.AUsecase.WithdrawWallet(ctx, &wallet, authorization)
+
+	if err != nil {
+		return c.JSON(getStatusCode(err), Response{Status: "fail", ResponseData: ResponseError{
+			Error: err.Error(),
+		}})
+	}
+	return c.JSON(http.StatusOK, Response{Status: "success", ResponseData: ResponseWithdrawal{
+		Withdrawal: res,
+	}})
+}
+
+// DisableWallet will disable wallet by given param
+func (a *WalletHandler) DisableWallet(c echo.Context) error {
+	authorization := c.Request().Header.Get("Authorization")
+	isDisabled, err := strconv.ParseBool(c.FormValue("is_disabled"))
+	if err != nil {
+		return c.JSON(http.StatusUnprocessableEntity, Response{Status: "fail", ResponseData: ResponseError{
+			Error: err.Error(),
+		}})
+	}
+	if isDisabled != true {
+		return c.JSON(http.StatusBadRequest, Response{Status: "fail", ResponseData: ResponseError{
+			Error: err.Error(),
+		}})
+	}
+
+	ctx := c.Request().Context()
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
+	res, err := a.AUsecase.DisableWallet(ctx, isDisabled, authorization)
+
+	if err != nil {
+		return c.JSON(getStatusCode(err), Response{Status: "fail", ResponseData: ResponseError{
+			Error: err.Error(),
+		}})
+	}
+	return c.JSON(http.StatusOK, Response{Status: "success", ResponseData: ResponseWallet{
+		Wallet: res,
+	}})
+}
+
+// InitWallet will init the wallet by given request body
+func (a *WalletHandler) InitWallet(c echo.Context) error {
+	contentType := c.Request().Header.Get("Content-Type")
+	if contentType != "application/json" {
+		return c.JSON(http.StatusUnsupportedMediaType, Response{Status: "fail", ResponseData: ResponseError{
+			Error: "Content-Type header is not application/json",
+		}})
+	}
+
+	if c.Request().Body == nil {
+		return c.JSON(http.StatusBadRequest, Response{Status: "fail", ResponseData: ResponseError{
+			Error: "Please send Body",
+		}})
+	}
+	customer := new(models.Customer)
+	err := json.NewDecoder(c.Request().Body).Decode(&customer)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, Response{Status: "fail", ResponseData: ResponseError{
+			Error: err.Error(),
+		}})
+	}
+
+	ctx := c.Request().Context()
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
+	res, err := a.AUsecase.InitWallet(ctx, customer.ID)
+
+	if err != nil {
+		return c.JSON(getStatusCode(err), Response{Status: "fail", ResponseData: ResponseError{
+			Error: err.Error(),
+		}})
+	}
+	return c.JSON(http.StatusOK, Response{Status: "success", ResponseData: ResponseWallet{
+		Wallet: res,
+	}})
+}
+
+func isRequestValid(m *models.ReqTransaction) (bool, error) {
 	validate := validator.New()
 	err := validate.Struct(m)
 	if err != nil {
 		return false, err
 	}
 	return true, nil
-}
-
-// Store will store the wallet by given request body
-func (a *WalletHandler) Store(c echo.Context) error {
-	var wallet models.Wallet
-	err := c.Bind(&wallet)
-	if err != nil {
-		return c.JSON(http.StatusUnprocessableEntity, err.Error())
-	}
-
-	if ok, err := isRequestValid(&wallet); !ok {
-		return c.JSON(http.StatusBadRequest, err.Error())
-	}
-	ctx := c.Request().Context()
-	if ctx == nil {
-		ctx = context.Background()
-	}
-
-	err = a.AUsecase.Store(ctx, &wallet)
-
-	if err != nil {
-		return c.JSON(getStatusCode(err), ResponseError{Message: err.Error()})
-	}
-	return c.JSON(http.StatusCreated, wallet)
-}
-
-// Delete will delete wallet by given param
-func (a *WalletHandler) Delete(c echo.Context) error {
-	idP, err := strconv.Atoi(c.Param("id"))
-	if err != nil {
-		return c.JSON(http.StatusNotFound, models.ErrNotFound.Error())
-	}
-	id := int64(idP)
-	ctx := c.Request().Context()
-	if ctx == nil {
-		ctx = context.Background()
-	}
-
-	err = a.AUsecase.Delete(ctx, id)
-	if err != nil {
-		return c.JSON(getStatusCode(err), ResponseError{Message: err.Error()})
-	}
-
-	return c.NoContent(http.StatusNoContent)
 }
 
 func getStatusCode(err error) int {
@@ -137,6 +248,10 @@ func getStatusCode(err error) int {
 		return http.StatusNotFound
 	case models.ErrConflict:
 		return http.StatusConflict
+	case models.ErrAlreadyEnabled:
+		return http.StatusBadRequest
+	case models.ErrDisabled:
+		return http.StatusNotFound
 	default:
 		return http.StatusInternalServerError
 	}
